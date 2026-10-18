@@ -62,7 +62,7 @@ pub struct StreamingSession {
     config: StreamConfig,
     ws: Option<WsConn>,
     config_sent: bool,
-    session_ended: bool,
+    /// `session_closed` stats of the last ended turn, until `end_session` returns them.
     session_stats: Option<FinalStats>,
     last_word_timestamps: Vec<WordTimestamp>,
     last_usage: Option<SessionUsage>,
@@ -90,7 +90,6 @@ impl StreamingSession {
             config,
             ws: None,
             config_sent: false,
-            session_ended: false,
             session_stats: None,
             last_word_timestamps: Vec::new(),
             last_usage: None,
@@ -204,6 +203,22 @@ impl StreamingSession {
         if let Some(op) = self.live_turn() {
             op.fail(error);
         }
+    }
+
+    /// True while a turn is open: text or a flush went out since the turn's
+    /// `session_closed` (or a cancel) was last seen.
+    fn turn_open(&self) -> bool {
+        !self.turn_frames.is_empty()
+    }
+
+    /// True when the open turn was flushed: the server ends it on its own
+    /// with `final` and `session_closed`. A `close` on top of it would end a
+    /// second, empty session whose `session_closed` (0 s, no usage) then
+    /// reaches the next turn as a stale frame.
+    fn turn_flushed(&self) -> bool {
+        self.turn_frames
+            .last()
+            .is_some_and(|frame| frame.get("flush") == Some(&Value::Bool(true)))
     }
 
     fn reset_turn(&mut self) {
@@ -479,22 +494,23 @@ impl StreamingSession {
         self.exchange(frame, true)
     }
 
-    /// Signal end of input (`close`) and yield the remaining audio until the
-    /// server sends `session_closed`. The socket stays open; the next
-    /// [`send`](Self::send) starts a new turn. Use it before
-    /// [`close`](Self::close) when you need the tail audio.
+    /// End the turn's input and yield its remaining audio until the server
+    /// sends `session_closed`. An unflushed turn is ended with `close`; a
+    /// flushed one is only read to its end. With no turn open this yields
+    /// nothing. The socket stays open; the next [`send`](Self::send) starts a
+    /// new turn. Use it before [`close`](Self::close) when you need the tail audio.
     pub fn drain(&mut self) -> BoxStream<'_, Result<AudioChunk>> {
         Box::pin(async_stream::stream! {
             loop {
-                if self.ws.is_none() || self.session_ended {
+                if self.ws.is_none() || !self.turn_open() {
                     return;
                 }
                 if let Some(op) = self.live_turn() {
                     op.set_stage(STAGE_FINALIZING);
                 }
-                self.session_ended = true;
                 let mut replay = false;
                 let sent = match &self.ws {
+                    Some(_) if self.turn_flushed() => Ok(()),
                     Some(ws) => ws.send_json(&json!({"close": true})),
                     None => return,
                 };
@@ -555,7 +571,6 @@ impl StreamingSession {
                     if is_restart_close(info.code) {
                         // The close handshake never completed: replay the
                         // unspoken turn on a fresh socket and drain again.
-                        self.session_ended = false;
                         match self.recover_from_restart(info).await {
                             Ok(replayed) => replay = replayed,
                             Err(e) => {
@@ -579,17 +594,20 @@ impl StreamingSession {
     }
 
     /// End the current turn but keep the socket open. Audio still in flight is
-    /// discarded (use [`drain`](Self::drain) to receive it). Returns the
-    /// turn's `session_closed` stats, or those [`drain`](Self::drain) captured.
+    /// discarded (use [`drain`](Self::drain) to receive it). An unflushed turn
+    /// is ended with `close`; a flushed one is read to its end. Returns the
+    /// turn's `session_closed` stats; when the turn already ended (a flushed
+    /// [`send`](Self::send) read to its end, or [`drain`](Self::drain)), the
+    /// stats captured then.
     pub async fn end_session(&mut self) -> Result<Option<FinalStats>> {
-        if self.session_ended {
-            self.session_ended = false;
+        if !self.turn_open() {
             self.config_sent = false;
             self.last_word_timestamps.clear();
             return Ok(self.session_stats.take());
         }
         let mut stats = None;
         let sent = match &self.ws {
+            Some(_) if self.turn_flushed() => Ok(()),
             Some(ws) => ws.send_json(&json!({"close": true})),
             None => return Ok(None),
         };
@@ -630,7 +648,6 @@ impl StreamingSession {
             return Ok(());
         }
         self.cancel_turn();
-        self.session_ended = false;
         self.session_stats = None;
         self.reset_turn();
         let sent = self
