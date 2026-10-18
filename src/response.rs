@@ -192,9 +192,11 @@ fn to_f32(audio: &[u8], encoding: AudioEncoding) -> Result<Vec<f32>> {
 pub struct FinalStats {
     /// Number of audio chunks (`/ws/tts` `final`).
     pub chunks: Option<u64>,
-    /// Total samples (`/ws/tts` `final`).
+    /// Total samples (`/ws/tts` `final`) of the native 24 kHz audio, before
+    /// resampling and the speed change: not the length of the delivered audio.
     pub total_samples: Option<u64>,
-    /// Audio duration in ms (`/ws/tts` `final`).
+    /// Audio duration in ms (`/ws/tts` `final`) of the native audio, before the
+    /// speed change: not the length of the delivered audio.
     pub duration_ms: Option<f64>,
     /// Generation time in ms (`/ws/tts` `final`).
     pub generation_ms: Option<f64>,
@@ -248,9 +250,9 @@ pub struct AudioResponse {
     pub sample_rate: u32,
     /// Encoding of `audio`.
     pub encoding: AudioEncoding,
-    /// Number of samples.
+    /// Number of samples in `audio`.
     pub samples: u64,
-    /// Audio duration in ms, when the server reported it.
+    /// Duration of `audio` in ms (collected streams; `None` for REST).
     pub duration_ms: Option<f64>,
     /// Generation time in ms, when the server reported it.
     pub generation_ms: Option<f64>,

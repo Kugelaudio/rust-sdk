@@ -88,11 +88,14 @@ impl TtsStream {
             encoding.unwrap_or(self.requested_encoding),
             None,
         );
+        // The `final` frame's `total_samples` and `dur_ms` count the native
+        // 24 kHz audio before resampling and the speed change, so the length
+        // comes from the delivered bytes (`from_bytes` set `samples`).
+        if response.sample_rate > 0 {
+            response.duration_ms =
+                Some(response.samples as f64 * 1000.0 / f64::from(response.sample_rate));
+        }
         if let Some(stats) = last {
-            if let Some(total) = stats.total_samples {
-                response.samples = total;
-            }
-            response.duration_ms = stats.duration_ms;
             response.generation_ms = stats.generation_ms;
             response.rtf = stats.rtf;
             response.usage = stats.usage;
