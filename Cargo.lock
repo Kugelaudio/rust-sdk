@@ -761,7 +761,7 @@ dependencies = [
 
 [[package]]
 name = "kugelaudio"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-stream",
  "base64 0.23.1",
