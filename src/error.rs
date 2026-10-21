@@ -59,8 +59,8 @@ pub const WS_CLOSE_SERVICE_RESTART: u16 = 1012;
 /// WebSocket close code: the replica accepted the handshake only to report it is draining.
 pub const WS_CLOSE_TRY_AGAIN_LATER: u16 = 1013;
 
-const API_KEYS_URL: &str = "https://app.kugelaudio.com/settings/api-keys";
-const BILLING_URL: &str = "https://app.kugelaudio.com/billing";
+const API_KEYS_URL: &str = "https://www.kugelaudio.com/dashboard";
+const BILLING_URL: &str = "https://www.kugelaudio.com/dashboard";
 
 /// The details every SDK error carries.
 #[derive(Debug, thiserror::Error)]
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     fn http_defaults_give_actionable_messages() {
         let err = classify_http(401, &HeaderMap::new(), b"");
-        assert!(err.message().contains("settings/api-keys"));
+        assert!(err.message().contains("www.kugelaudio.com/dashboard"));
         assert_eq!(err.error_code(), Some(ERROR_CODE_UNAUTHORIZED));
         let err = classify_http(
             503,

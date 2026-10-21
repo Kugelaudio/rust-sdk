@@ -204,7 +204,7 @@ impl KugelAudioBuilder {
         if self.api_key.trim().is_empty() {
             return Err(Error::validation(
                 "KugelAudio API key is missing. Pass it to KugelAudio::new(..). Get a key at \
-                 https://app.kugelaudio.com/settings/api-keys.",
+                 https://www.kugelaudio.com/dashboard.",
             ));
         }
         let (api_key, key_region) = parse_api_key(&self.api_key);

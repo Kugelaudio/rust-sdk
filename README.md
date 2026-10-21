@@ -24,7 +24,7 @@ Minimum supported Rust version: 1.89.
 
 ## Quickstart
 
-Create an API key in the [dashboard](https://app.kugelaudio.com/settings/api-keys)
+Create an API key in the [dashboard](https://www.kugelaudio.com/dashboard)
 and export it as `KUGELAUDIO_API_KEY`.
 
 ```rust
