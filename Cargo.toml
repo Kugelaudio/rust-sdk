@@ -1,6 +1,6 @@
 [package]
 name = "kugelaudio"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 # The highest rust-version among the resolved dependencies (uuid 1.28: 1.89; icu via url: 1.88).
 rust-version = "1.89"
