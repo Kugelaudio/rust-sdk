@@ -243,7 +243,7 @@ pub struct VoiceListResponse {
     /// The voices on this page.
     #[serde(default)]
     pub voices: Vec<Voice>,
-    /// Total matching public catalog voices (your own voices come with every page).
+    /// Total matching voices: your own voices plus the public catalog.
     pub total: u64,
     /// Page size.
     pub limit: u64,
