@@ -32,13 +32,29 @@ pub struct WordTimestamp {
     /// End, in milliseconds.
     #[serde(deserialize_with = "de_ms")]
     pub end_ms: i64,
-    /// Start offset of the word in the input text (characters).
+    /// Start offset of the word in [`WordTimestamp::text`], the spoken text. All
+    /// offsets count Unicode code points (Rust `char`s), not bytes.
     pub char_start: i64,
-    /// End offset of the word in the input text (characters).
+    /// End offset of the word in [`WordTimestamp::text`] (characters).
     pub char_end: i64,
     /// Compatibility field, currently always 1.0.
     #[serde(default = "default_score")]
     pub score: f64,
+    /// Start offset, in [`WordTimestamp::original_text`], of the words this word
+    /// speaks. `None` when the server does not send it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_char_start: Option<i64>,
+    /// End offset in [`WordTimestamp::original_text`]. `None` when the server
+    /// does not send it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_char_end: Option<i64>,
+    /// The text the chunk spoke, after normalization (the frame's `text`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    /// The part of your text the chunk spoke, before normalization (the
+    /// frame's `original_text`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_text: Option<String>,
 }
 
 impl WordTimestamp {
@@ -376,6 +392,8 @@ mod tests {
         .unwrap();
         assert_eq!(ts.duration_ms(), 320);
         assert_eq!(ts.score, 1.0);
+        assert_eq!(ts.original_char_start, None);
+        assert_eq!(ts.text, None);
     }
 
     #[test]

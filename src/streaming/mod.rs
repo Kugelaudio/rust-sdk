@@ -58,17 +58,26 @@ pub(crate) fn truthy(frame: &Value, key: &str) -> bool {
     }
 }
 
-/// The `word_timestamps` array of a frame, when present.
+/// The `word_timestamps` array of a frame, when present. Every word also
+/// carries the frame's `text` and `original_text`.
 pub(crate) fn word_timestamps(frame: &Value) -> Result<Option<Vec<WordTimestamp>>> {
     match frame.get("word_timestamps") {
         None => Ok(None),
-        Some(value) => serde_json::from_value(value.clone())
-            .map(Some)
-            .map_err(|e| {
-                Error::api(format!(
-                    "Malformed word_timestamps frame from KugelAudio: {e}"
-                ))
-            }),
+        Some(value) => {
+            let mut words: Vec<WordTimestamp> =
+                serde_json::from_value(value.clone()).map_err(|e| {
+                    Error::api(format!(
+                        "Malformed word_timestamps frame from KugelAudio: {e}"
+                    ))
+                })?;
+            let text = frame.get("text").and_then(Value::as_str);
+            let original_text = frame.get("original_text").and_then(Value::as_str);
+            for word in &mut words {
+                word.text = text.map(str::to_owned);
+                word.original_text = original_text.map(str::to_owned);
+            }
+            Ok(Some(words))
+        }
     }
 }
 
@@ -76,6 +85,65 @@ pub(crate) fn word_timestamps(frame: &Value) -> Result<Option<Vec<WordTimestamp>
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn word_timestamps_carry_original_offsets_and_frame_texts() {
+        let frame = json!({
+            "word_timestamps": [{
+                "word": "twelve", "start_ms": 0, "end_ms": 300, "char_start": 6, "char_end": 12,
+                "original_char_start": 6, "original_char_end": 12, "score": 1.0
+            }],
+            "chunk_id": 0,
+            "text": "About twelve thousand visitors.",
+            "original_text": "About 12,000 visitors."
+        });
+        let words = word_timestamps(&frame).unwrap().unwrap();
+        assert_eq!(words[0].original_char_start, Some(6));
+        assert_eq!(words[0].original_char_end, Some(12));
+        assert_eq!(
+            words[0].text.as_deref(),
+            Some("About twelve thousand visitors.")
+        );
+        assert_eq!(
+            words[0].original_text.as_deref(),
+            Some("About 12,000 visitors.")
+        );
+    }
+
+    #[test]
+    fn original_offsets_count_chars_after_an_emoji() {
+        let frame = json!({
+            "word_timestamps": [{
+                "word": "twelve", "start_ms": 0, "end_ms": 300, "char_start": 2, "char_end": 8,
+                "original_char_start": 2, "original_char_end": 8
+            }],
+            "text": "\u{1F600} twelve visitors.",
+            "original_text": "\u{1F600} 12,000 visitors."
+        });
+        let word = word_timestamps(&frame).unwrap().unwrap().remove(0);
+        let start = word.original_char_start.unwrap() as usize;
+        let end = word.original_char_end.unwrap() as usize;
+        let yours: String = word
+            .original_text
+            .unwrap()
+            .chars()
+            .skip(start)
+            .take(end - start)
+            .collect();
+        assert_eq!(yours, "12,000");
+    }
+
+    #[test]
+    fn word_timestamps_from_an_older_server_leave_the_new_fields_none() {
+        let frame = json!({"word_timestamps": [
+            {"word": "Hi", "start_ms": 0, "end_ms": 50, "char_start": 0, "char_end": 2}
+        ]});
+        let words = word_timestamps(&frame).unwrap().unwrap();
+        assert_eq!(words[0].original_char_start, None);
+        assert_eq!(words[0].original_char_end, None);
+        assert_eq!(words[0].text, None);
+        assert_eq!(words[0].original_text, None);
+    }
 
     #[test]
     fn truthiness_matches_python() {
