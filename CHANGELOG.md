@@ -1,3 +1,5 @@
+## [kugelaudio-rust-sdk-v0.2.1](https://github.com/Kugelaudio/KugelAudio/compare/rust-sdk-v0.2.0...rust-sdk-v0.2.1) (2026-11-14)
+
 ## [kugelaudio-rust-sdk-v0.2.0](https://github.com/Kugelaudio/KugelAudio/compare/rust-sdk-v0.1.3...rust-sdk-v0.2.0) (2026-11-14)
 
 ## [kugelaudio-rust-sdk-v0.1.3](https://github.com/Kugelaudio/KugelAudio/compare/rust-sdk-v0.1.2...rust-sdk-v0.1.3) (2026-11-13)
