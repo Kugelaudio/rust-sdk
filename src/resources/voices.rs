@@ -326,9 +326,9 @@ impl<'a> VoicesResource<'a> {
         if let Some(language) = options.language.as_ref().filter(|l| !l.is_empty()) {
             query.push(("language", language.clone()));
         }
-        if options.include_public {
-            query.push(("include_public", "true".to_string()));
-        }
+        // Always sent: the server's default is true, so omitting it for false
+        // listed the public catalog anyway (ENG-1571).
+        query.push(("include_public", options.include_public.to_string()));
         self.client
             .inner
             .json(Method::GET, "/v1/voices", &query, None)

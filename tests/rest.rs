@@ -90,6 +90,27 @@ async fn voices_list_passes_filters() {
     assert_eq!(page.voices[0].supported_languages, vec!["de-DE"]);
 }
 
+// ENG-1571: false is sent, not omitted; the server's default is true.
+#[tokio::test]
+async fn voices_list_sends_include_public_false() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/voices"))
+        .and(query_param("include_public", "false"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "voices": [], "total": 0, "limit": 20, "offset": 0
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let page = client(&server)
+        .voices()
+        .list(&VoiceListOptions::default().include_public(false))
+        .await
+        .unwrap();
+    assert_eq!(page.total, 0);
+}
+
 #[tokio::test]
 async fn not_found_carries_request_id() {
     let server = MockServer::start().await;
